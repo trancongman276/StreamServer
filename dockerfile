@@ -19,7 +19,7 @@ RUN apk add --no-cache \
     py3-pip \
     py3-numpy \
     py3-pillow \
-    && pip install opencv-python-headless redis \
+    && pip install opencv-python-headless==3.* redis \
     && rm -rf /var/cache/apk/*
 
 WORKDIR /app
