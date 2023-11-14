@@ -1,103 +1,111 @@
-FROM arm32v7/python:3.9.7-alpine3.14 as opencv-buildstage
+ARG PYTHON_VERSION_SHORT=3.8
+ARG OPENCV_VERSION=3.4.16
+ARG CPU_CORES=4
 
-ENV OPENCV_VERSION=4.5.3
+FROM arm32v7/python:3.8-rc-stretch
 
-ENV BUILD="ca-certificates \
-    git \
-    build-base \
-    musl-dev \
-    alpine-sdk \
-    make \
-    gcc \
-    g++ \
-    libc-dev \
-    linux-headers \
-    libjpeg-turbo \
-    libpng \
-    libwebp \
-    libwebp-dev \
-    tiff \
-    libavc1394 \
-    jasper-libs \
-    openblas \
-    libgphoto2 \
-    gstreamer \
-    gst-plugins-base"
+ARG DEBIAN_FRONTEND=noninteractive
 
-ENV DEV="clang clang-dev cmake pkgconf \
-    openblas-dev gstreamer-dev gst-plugins-base-dev \
-    libgphoto2-dev libjpeg-turbo-dev libpng-dev \
-    tiff-dev jasper-dev libavc1394-dev"
-
-RUN apk update && \
-    apk add --no-cache ${BUILD} ${DEV} python3 python3-dev && \
-    ln -s /usr/bin/python3 /usr/bin/python && \
-    ln -s /usr/bin/pip3 /usr/bin/pip && \
-    pip install --upgrade pip && \
-    pip install numpy
-
-RUN mkdir /tmp/opencv && \
-    cd /tmp/opencv && \
-    wget -O opencv.zip https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip && \
-    unzip opencv.zip && \
-    wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.zip && \
-    unzip opencv_contrib.zip && \
-    mkdir /tmp/opencv/opencv-${OPENCV_VERSION}/build && cd /tmp/opencv/opencv-${OPENCV_VERSION}/build && \
+# Installing build tools and dependencies.
+# More about dependencies there: https://docs.opencv.org/3.4.16/d2/de6/tutorial_py_setup_in_ubuntu.html
+RUN set -e; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+    apt-utils \
+    build-essential; \
+    apt-get install -y --no-install-recommends \
+    # Downloading utils
+    unzip \
+    wget \
+    # Build utils
     cmake \
-    -D CMAKE_BUILD_TYPE=RELEASE \
-    -D CMAKE_INSTALL_PREFIX=/usr/local \
-    -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv/opencv_contrib-${OPENCV_VERSION}/modules \
-    -D WITH_FFMPEG=YES \
-    -D INSTALL_C_EXAMPLES=NO \
-    -D INSTALL_PYTHON_EXAMPLES=NO \
-    -D BUILD_ANDROID_EXAMPLES=NO \
-    -D BUILD_DOCS=NO \
-    -D BUILD_TESTS=NO \
-    -D BUILD_PERF_TESTS=NO \
-    -D BUILD_EXAMPLES=NO \
-    -D BUILD_opencv_java=NO \
-    -D BUILD_opencv_python=YES \
-    -D BUILD_opencv_python2=NO \
-    -D BUILD_opencv_python3=NO \
-    -D PYTHON3_EXECUTABLE=/usr/bin/python \
-    -D PYTHON3_INCLUDE_DIR=/usr/include/python3.9 \
-    -D PYTHON3_LIBRARY=/usr/lib/libpython3.9.so .. && \
-    make -j4 && \
-    make install && \
-    cd && rm -rf /tmp/opencv
-
-RUN apk del ${DEV_DEPS} && \
-    rm -rf /var/cache/apk/*
-
-RUN mkdir -p /usr/local/lib/pkgconfig /usr/local/lib64/pkgconfig
-
-
-FROM arm32v7/python:3.9.7-alpine3.14 as opencv-runtime
-
-# OpenCV shared objects from build-stage
-COPY --from=opencv-buildstage /usr/local/lib /usr/local/lib
-COPY --from=opencv-buildstage /usr/local/lib64 /usr/local/lib64
-COPY --from=opencv-buildstage /usr/local/lib64/pkgconfig/ /usr/local/lib64/pkgconfig/
-COPY --from=opencv-buildstage /usr/local/include/opencv4/opencv2 /usr/local/include/opencv4/opencv2
-
-ENV PKG="libstdc++ \
-    ca-certificates \
-    libjpeg-turbo \
-    libpng \
-    libwebp \
+    gcc \
+    # Required dependencies
+    python3-dev \
+    python3-numpy \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libgstreamer-plugins-base1.0-dev \
+    libgstreamer1.0-dev \
+    # Optional dependencies
+    libtbb2 \
+    libtbb-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libopenexr-dev \
+    libtiff-dev \
     libwebp-dev \
-    tiff \
-    jasper-libs \
-    libavc1394 \
-    jasper-libs \
-    openblas \
-    libgphoto2 \
-    gstreamer \
-    gst-plugins-base \
-    python3 \
-    libpython3.9"
+    # Video device drivers
+    libv4l-dev \
+    libdc1394-22-dev; \
+    # Clear apt cache
+    rm -rf /var/lib/apt/lists/*
 
-RUN apk update && \
-    apk upgrade && \
-    apk add --no-cache ${PKG} && \
-    rm -rf /var/cache/apk/*
+RUN pip install numpy
+
+ARG OPENCV_VERSION
+ENV OPENCV_VERSION=$OPENCV_VERSION
+
+# Download latest source and contrib
+RUN set -e; \
+    cd /tmp; \
+    wget -c -nv -O opencv.zip https://github.com/opencv/opencv/archive/$OPENCV_VERSION.zip; \
+    unzip opencv.zip; \
+    wget -c -nv -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/$OPENCV_VERSION.zip; \
+    unzip opencv_contrib.zip
+
+ARG PYTHON_VERSION_SHORT
+ENV PYTHON_VERSION=$PYTHON_VERSION_SHORT
+
+ARG CPU_CORES
+
+# Build opencv
+RUN set -e; \
+    cd /tmp/opencv-$OPENCV_VERSION; \
+    mkdir build; \
+    cd build; \
+    mkdir /opt/opencv; \
+    cmake -D CMAKE_BUILD_TYPE=RELEASE \
+    -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-$OPENCV_VERSION/modules \
+    -D CMAKE_INSTALL_PREFIX=/opt/opencv \
+    # Build without GUI support
+    -D WITH_QT=OFF \
+    -D WITH_GTK=OFF \
+    # Build without GPU support
+    -D WITH_OPENCL=OFF \
+    -D WITH_CUDA=OFF \
+    -D BUILD_opencv_gpu=OFF \
+    -D BUILD_opencv_gpuarithm=OFF \
+    -D BUILD_opencv_gpubgsegm=OFF \
+    -D BUILD_opencv_gpucodec=OFF \
+    -D BUILD_opencv_gpufeatures2d=OFF \
+    -D BUILD_opencv_gpufilters=OFF \
+    -D BUILD_opencv_gpuimgproc=OFF \
+    -D BUILD_opencv_gpulegacy=OFF \
+    -D BUILD_opencv_gpuoptflow=OFF \
+    -D BUILD_opencv_gpustereo=OFF \
+    -D BUILD_opencv_gpuwarping=OFF \
+    # Build with python
+    -D BUILD_opencv_python3=ON \
+    -D BUILD_opencv_python2=OFF \
+    -D PYTHON_DEFAULT_EXECUTABLE=$(which python${PYTHON_VERSION}) \
+    # Ignore all unnecessary stages
+    -D BUILD_opencv_apps=OFF \
+    -D BUILD_EXAMPLES=OFF \
+    -D INSTALL_C_EXAMPLES=OFF \
+    -D INSTALL_PYTHON_EXAMPLES=OFF \
+    -D BUILD_DOCS=OFF \
+    -D BUILD_PERF_TESTS=OFF \
+    -D BUILD_TESTS=OFF \
+    ..; \
+    make -j$CPU_CORES; \
+    make install; \
+    ldconfig; \
+    # Clean up
+    make clean; \
+    cd /tmp; \
+    rm -rf /tmp/*
+
+CMD ["/bin/bash"]
+ENTRYPOINT [ "tail -f /dev/null" ]
