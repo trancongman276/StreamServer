@@ -3,7 +3,8 @@ FROM arm32v7/python:3.9-rc-buster
 ARG DEBIAN_FRONTEND=noninteractive
 
 # update apt
-RUN apt-get update \
+RUN add-apt-repository 'deb http://security.ubuntu.com/ubuntu xenial-security main' \
+    && apt-get update \
     && apt-get install -y --no-install-recommends apt-utils \
     # install necessary build tools \
     && apt-get -qy install build-essential cmake pkg-config unzip wget \
@@ -24,7 +25,6 @@ RUN apt-get update \
     libatlas-base-dev \
     gfortran \
     python3-numpy \
-    libraspberrypi0 \
     # cleanup apt \
     && apt-get purge -y --auto-remove \
     && rm -rf /var/lib/apt/lists/*
