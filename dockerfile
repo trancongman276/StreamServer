@@ -2,10 +2,10 @@ FROM arm32v7/python:3.9-rc-buster
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+RUN apt-get update \
+    && apt-get install -y software-properties-common 
 # update apt
 RUN apt-get update \
-    && apt-get install -y software-properties-common \
-    && apt-get update \
     && apt-get install -y --no-install-recommends apt-utils \
     # install necessary build tools \
     && apt-get -qy install build-essential cmake pkg-config unzip wget \
