@@ -3,7 +3,8 @@ FROM arm32v7/python:3.9-rc-buster
 ARG DEBIAN_FRONTEND=noninteractive
 
 # update apt
-RUN add-apt-repository 'deb http://security.ubuntu.com/ubuntu xenial-security main' \
+RUN apt-get update \
+    && apt-get install -y software-properties-common \
     && apt-get update \
     && apt-get install -y --no-install-recommends apt-utils \
     # install necessary build tools \
