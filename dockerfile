@@ -12,7 +12,7 @@ RUN apt-get update \
     libjpeg-dev \
     libtiff5-dev \
     libjasper-dev \
-    libpng12-dev \
+    libpng-dev \
     libavcodec-dev \
     libavformat-dev \
     libswscale-dev \
