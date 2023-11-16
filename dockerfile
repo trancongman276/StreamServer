@@ -34,8 +34,8 @@ RUN pip3 install --extra-index-url https://www.piwheels.org/simple --only-binary
 
 # TFLite-runtime 2.9.0 for ARMv7
 WORKDIR /tmp
-RUN curl -OL https://github.com/PINTO0309/TensorflowLite-bin/releases/download/v2.9.0/tflite_runtime-2.9.0-cp37-none-linux_armv7l.whl
-RUN pip3 install --only-binary=:all: tflite_runtime-2.9.0-cp37-none-linux_armv7l.whl
+RUN curl -OL https://github.com/PINTO0309/TensorflowLite-bin/releases/download/v2.9.0/tflite_runtime-2.9.0-cp39-none-linux_armv7l.whl
+RUN pip3 install --only-binary=:all: tflite_runtime-2.9.0-cp39-none-linux_armv7l.whl
 
 # Seems to work OK to install newer numpy after tflite-runtime is safely installed
 RUN pip3 install --extra-index-url https://www.piwheels.org/simple --only-binary=:all: -U numpy
