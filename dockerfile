@@ -12,9 +12,10 @@ RUN apt-get update -y && apt-get upgrade -y
 RUN apt-get install -y --allow-downgrades \
     git \
     # numpy deps:
-    libatlas-base-dev libgfortran5 \
+    libatlas-base-dev libgfortran5 libopenblas-dev \
     # OpenCV deps:
     libatlas3-base \
+    libavcodec58 \
     libharfbuzz0b \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
