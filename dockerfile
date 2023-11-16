@@ -14,6 +14,7 @@ RUN apt-get install -y --allow-downgrades \
     # numpy deps:
     libatlas-base-dev libgfortran5 libopenblas-dev \
     # OpenCV deps:
+    ffmpeg libsm6 libxext6 \
     libatlas3-base \
     libavcodec58 \
     libharfbuzz0b \
