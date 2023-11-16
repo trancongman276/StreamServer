@@ -1,68 +1,83 @@
-FROM arm32v7/python:3.9-rc-buster
+FROM balenalib/raspberrypi3-debian-python:3.9.16-build
 
-ARG DEBIAN_FRONTEND=noninteractive
+RUN [ "cross-build-start" ]
 
-RUN apt-get update \
-    && apt-get install -y software-properties-common \
-    && add-apt-repository 'deb http://security.ubuntu.com/ubuntu xenial-security main' \
-    && apt-get update \
-    && apt-get install -y software-properties-common \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends apt-utils \
-    # install necessary build tools \
-    && apt-get -qy install build-essential cmake pkg-config unzip wget \
-    # install necessary libraries \
-    && apt-get -qy install \
-    libjpeg-dev \
-    libtiff5-dev \
-    libjasper-dev \
-    libpng-dev \
-    libavcodec-dev \
-    libavformat-dev \
-    libswscale-dev \
-    libv4l-dev \
-    libxvidcore-dev \
-    libx264-dev \
-    libgtk2.0-dev \
-    libgtk-3-dev \
-    libatlas-base-dev \
-    gfortran \
-    python3-numpy \
-    # cleanup apt \
-    && apt-get purge -y --auto-remove \
-    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
 
-ARG OPENCV_VERSION=3.4.16
-ENV OPENCV_VERSION $OPENCV_VERSION
+RUN echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list
+RUN echo "deb https://packages.cloud.google.com/apt coral-cloud-stable main" > /etc/apt/sources.list.d/coral-cloud.list
+RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 
-# download latest source & contrib
-RUN	cd /tmp \
-    && wget -c -N -nv -O opencv.zip https://github.com/opencv/opencv/archive/$OPENCV_VERSION.zip \
-    && unzip opencv.zip \
-    && wget -c -N -nv -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/$OPENCV_VERSION.zip \
-    && unzip opencv_contrib.zip \
-    # build opencv \
-    && cd /tmp/opencv-$OPENCV_VERSION \
-    && mkdir build \
-    && cd build \
-    && cmake -D CMAKE_BUILD_TYPE=RELEASE \
-    -D CMAKE_INSTALL_PREFIX=/usr/local \
-    -D INSTALL_C_EXAMPLES=ON \
-    -D BUILD_PYTHON_SUPPORT=ON \
-    -D BUILD_NEW_PYTHON_SUPPORT=ON \
-    -D INSTALL_PYTHON_EXAMPLES=ON \
-    -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-$OPENCV_VERSION/modules \
-    -D BUILD_EXAMPLES=ON .. \
-    && make -j4  \
-    && make \
-    && make install\
-    # ldconfig && \
-    && make clean \
-    # cleanup source \
-    && cd / \
-    && rm -rf /tmp/* \
-    && pip3 install imutils picamera \
-    && date \
-    && echo "OpenCV $OPENCV_VERSION Docker Build finished."
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y --allow-downgrades \
+    git \
+    # numpy deps:
+    libatlas-base-dev libgfortran5 \
+    # OpenCV deps:
+    libaom0 libatlas3-base libavcodec58 libavformat58 libavutil56 \
+    libbluray2 libcairo2 libchromaprint1 libcodec2-0.8.1 libcroco3 \
+    libdatrie1 libdrm2 libfontconfig1 libgdk-pixbuf2.0-0 libgfortran5 \
+    libgme0 libgraphite2-3 libgsm1 libharfbuzz0b libjbig0 libmp3lame0 \
+    libmpg123-0 libogg0 libopenjp2-7 libopenmpt0 libopus0 libpango-1.0-0 \
+    libpangocairo-1.0-0 libpangoft2-1.0-0 libpixman-1-0 librsvg2-2 \
+    libshine3 libsnappy1v5 libsoxr0 libspeex1 libssh-gcrypt-4 \
+    libswresample3 libswscale5 libthai0 libtheora0 libtiff5 libtwolame0 \
+    libva-drm2 libva-x11-2 libva2 libvdpau1 libvorbis0a libvorbisenc2 \
+    libvorbisfile3 libvpx5 libwavpack1 libwebp6 libwebpmux3 libx264-155 \
+    libx265-165 libxcb-render0 libxcb-shm0 libxfixes3 libxrender1 \
+    libxvidcore4 libzvbi0
+
+RUN pip3 install --upgrade pip wheel setuptools
+
+# Hold numpy at 1.19.2 while installing tflite-runtime for dependency purposes
+RUN pip3 install --extra-index-url https://www.piwheels.org/simple --only-binary=:all: -U opencv-python-headless>=4.5.4 numpy==1.19.2 matplotlib pillow tflite_support
+
+# TFLite-runtime 2.9.0 for ARMv7
+WORKDIR /tmp
+RUN curl -OL https://github.com/PINTO0309/TensorflowLite-bin/releases/download/v2.9.0/tflite_runtime-2.9.0-cp37-none-linux_armv7l.whl
+RUN pip3 install --only-binary=:all: tflite_runtime-2.9.0-cp37-none-linux_armv7l.whl
+
+# Seems to work OK to install newer numpy after tflite-runtime is safely installed
+RUN pip3 install --extra-index-url https://www.piwheels.org/simple --only-binary=:all: -U numpy
+
+# USER root
+
+# RUN mkdir -p /deepdish/detectors/yolo
+# RUN wget -O /deepdish/detectors/yolo/yolo.h5 https://github.com/OlafenwaMoses/ImageAI/releases/download/1.0/yolo.h5
+
+# Create 'user' for running things
+# ARG USER_ID
+# ARG GROUP_ID
+
+# RUN addgroup --gid $GROUP_ID user
+# RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid 0 user
+# RUN adduser user plugdev
+# RUN adduser user video
+
+# RUN mkdir -p /work
+# RUN chown -R user:user /work # /yolo
+
+# Allow password-less 'root' login with 'su'
+# RUN passwd -d root
+# RUN sed -i 's/nullok_secure/nullok/' /etc/pam.d/common-auth
+
+# RUN echo '#!/bin/bash\nPYTHONPATH=/deepdish:$PYTHONPATH DEEPDISHHOME=/deepdish python3 /deepdish/deepdish.py $@' > /usr/bin/deepdish.sh
+# COPY yolov5-demo.sh /usr/bin
+# COPY tflite-demo.sh /usr/bin
+
+# RUN (cd /usr/bin; chmod +x deepdish.sh yolov5-demo.sh tflite-demo.sh)
+
+# COPY *.py /deepdish/
+# COPY detectors/mobilenet/* /deepdish/detectors/mobilenet/
+# COPY detectors/efficientdet_lite0/* /deepdish/detectors/efficientdet_lite0/
+# COPY detectors/yolov5/* /deepdish/detectors/yolov5/
+# COPY encoders/* /deepdish/encoders/
+# COPY yolo3/*.py /deepdish/yolo3/
+# COPY tools/*.py /deepdish/tools/
+# COPY deep_sort/*.py /deepdish/deep_sort/
+# COPY deepdish/*.py /deepdish/deepdish/
+# COPY bicycle_test1.mp4 /deepdish
+
+RUN [ "cross-build-end" ]
 
 CMD ["/bin/bash"]
