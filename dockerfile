@@ -11,10 +11,20 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 RUN apt-get update -y && apt-get upgrade -y
 RUN apt-get install -y --allow-downgrades \
     git \
+    build-essential cmake libprotobuf-dev protobuf-compiler libopencv-dev \
     # numpy deps:
     libatlas-base-dev libgfortran5 libopenblas-dev \
     # OpenCV deps:
     ffmpeg libsm6 libxext6 
+
+# Add build ncnn
+RUN git clone https://github.com/Tencent/ncnn.git \
+    && cd ncnn \
+    && git submodule update --remote --recursive \
+    && mkdir -p build \
+    && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DNCNN_BUILD_EXAMPLES=ON -DCMAKE_TOOLCHAIN_FILE=../toolchains/pi3.toolchain.cmake .. \
+    && make -j$(nproc)
 
 RUN pip3 install --upgrade pip wheel setuptools
 
@@ -28,15 +38,6 @@ RUN pip3 install --only-binary=:all: tflite_runtime-2.9.0-cp39-none-linux_armv7l
 
 # Seems to work OK to install newer numpy after tflite-runtime is safely installed
 RUN pip3 install --extra-index-url https://www.piwheels.org/simple --only-binary=:all: -U numpy
-
-# Add build ncnn
-RUN git clone https://github.com/Tencent/ncnn.git \
-    && cd ncnn \
-    && git submodule update --remote --recursive \
-    && mkdir -p build \
-    && cd build \
-    && cmake -DCMAKE_BUILD_TYPE=Release -DNCNN_VULKAN=ON -DNCNN_BUILD_EXAMPLES=ON -DCMAKE_TOOLCHAIN_FILE=../toolchains/pi3.toolchain.cmake .. \
-    && make -j$(nproc)
 
 RUN [ "cross-build-end" ]
 
