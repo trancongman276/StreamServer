@@ -32,7 +32,7 @@ RUN pip3 install --extra-index-url https://www.piwheels.org/simple --only-binary
 # Add build ncnn
 RUN git clone https://github.com/Tencent/ncnn.git \
     cd ncnn \
-    git submodule update --init \
+    git submodule update --remote --recursive \
     mkdir -p build \
     cd build \
     cmake -DCMAKE_BUILD_TYPE=Release -DNCNN_VULKAN=ON -DNCNN_BUILD_EXAMPLES=ON -DCMAKE_TOOLCHAIN_FILE=../toolchains/pi3.toolchain.cmake .. \
